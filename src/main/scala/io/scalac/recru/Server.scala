@@ -15,7 +15,8 @@ object Server {
     implicit val executionContext = system.dispatcher
 
     // dependencies
-    val gameService = new ActorGameService()
+    val gameManager = system.actorOf(GameManagerActor.props(new KafkaMessages))
+    val gameService = new ActorGameService(gameManager)
 
     val bindingFuture = Http().bindAndHandle(new Routes(gameService).router, "localhost", 8080)
 

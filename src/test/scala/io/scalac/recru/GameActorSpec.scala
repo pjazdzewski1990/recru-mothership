@@ -33,6 +33,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       seenPlayers = seenPlayers ++ players
       Done
     }
+    override def listenLocation: String = ""
   }
 
   "GameActor" should "start a game with 2 players after the timeout" in {

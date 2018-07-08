@@ -1,13 +1,18 @@
 package io.scalac.recru
 
-import java.util.UUID
+import java.util.concurrent.TimeUnit
 
-import scala.concurrent.Future
+import akka.actor.ActorRef
+import akka.pattern.ask
+import akka.util.Timeout
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object GameService {
+  //TODO: move to utils as this reaches beyond us this protocol
   case class Player(name: String) extends AnyVal
-
   case class GameId(v: String) extends AnyVal
+
   case class Game(id: GameId, listenOn: String)
 }
 
@@ -16,12 +21,15 @@ trait GameService {
   def searchForAGame(p: Player): Future[Game]
 }
 
-case class ActorGameService() extends GameService {
+case class ActorGameService(gameManager: ActorRef)(implicit ec: ExecutionContext) extends GameService {
   import GameService._
-  override def searchForAGame(p: GameService.Player): Future[GameService.Game] = Future.successful(
-    Game(
-      GameId(UUID.randomUUID().toString),
-      UUID.randomUUID().toString
-    )
-  )
+
+  implicit val timeout = Timeout(5, TimeUnit.SECONDS)
+
+  override def searchForAGame(p: GameService.Player): Future[GameService.Game] = {
+    (gameManager ? GameManagerActor.FindGameForPlayer(p)).map {
+      case GameManagerActor.Found(id, listenOn) =>
+       Game(id, listenOn)
+    }
+  }
 }
