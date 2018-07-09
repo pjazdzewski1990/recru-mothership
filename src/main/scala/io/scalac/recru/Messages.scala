@@ -17,7 +17,7 @@ class KafkaMessages extends Messages {
   }
   // Note: it would be a more useful design to include the whole state of board in the message, but it's intentionally made harder
   override def signalGameUpdate(gameId: GameId, player: Player, move: Int): Done = {
-    println(s"Started a updated with ${player}, ${move}")
+    println(s"Updated game ${gameId} with ${player}, ${move}")
     Done
   }
 }

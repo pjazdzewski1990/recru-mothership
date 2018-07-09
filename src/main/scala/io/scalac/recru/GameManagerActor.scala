@@ -27,14 +27,14 @@ object GameManagerActor {
   case object Moved extends MakeAMoveResult
 
   def props(messages: Messages) =
-    Props(classOf[GameManagerActor], messages)
+    Props(classOf[GameManagerActor], messages, 30.seconds)
 }
 
 object GameManagerInternals {
   case class CurrentlyWaitingGame(id: GameId, ref: ActorRef)
 }
 
-class GameManagerActor(messages: Messages) extends Actor with ActorLogging {
+class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration) extends Actor with ActorLogging {
   import GameManagerActor._
   import GameManagerInternals._
 
@@ -48,7 +48,7 @@ class GameManagerActor(messages: Messages) extends Actor with ActorLogging {
 
     case msg: FindGameForPlayer if gameWaiting.isEmpty =>
       val gid = GameId(UUID.randomUUID().toString)
-      val gameRef = context.actorOf(GameActor.props(gid, self, messages, playersWaitTimeout = 30.seconds))
+      val gameRef = context.actorOf(GameActor.props(gid, self, messages, playersWaitTimeout = playersWaitTimeout))
       val openGame = CurrentlyWaitingGame(gid, gameRef)
       tryJoining(openGame, msg)
 
@@ -58,15 +58,18 @@ class GameManagerActor(messages: Messages) extends Actor with ActorLogging {
       val gameThatStarted = gameWaiting.get
       context.become(handleCommands(gamesRunning + (gameThatStarted.id -> gameThatStarted.ref), None))
 
-    case MakeAMove(gid, p, move) =>
+    case MakeAMove(gid, player, move) =>
       val replyTo = sender()
       gamesRunning.get(gid).map { ref =>
-        (ref ? GameActor.PlayerMoves(p, move)).mapTo[GameActor.MoveResult].map {
+        log.info("Player {} is going to move in {}", player, gid)
+        (ref ? GameActor.PlayerMoves(player, move)).mapTo[GameActor.MoveResult].map {
           case GameActor.Moved =>
             replyTo ! GameManagerActor.Moved
           case GameActor.NotYourTurn =>
             replyTo ! GameManagerActor.NotYourTurn
         }
+      }.getOrElse {
+        replyTo ! GameManagerActor.NotYourTurn //TODO: be more precise
       }
   }
 

@@ -37,9 +37,9 @@ case class ActorGameService(gameManager: ActorRef)(implicit ec: ExecutionContext
   }
 
   private val allowedMoves = Seq(-2, -1, 1, 2)
-  override def move(game: GameId, p: Player, move: Int): Future[MoveResult] = {
+  override def move(game: GameId, player: Player, move: Int): Future[MoveResult] = {
     if(allowedMoves.contains(move)) {
-      (gameManager ? GameManagerActor.FindGameForPlayer(p)).map {
+      (gameManager ? GameManagerActor.MakeAMove(game, player, move)).map {
         case GameManagerActor.Moved =>
           Moved
         case GameManagerActor.NotYourTurn =>
