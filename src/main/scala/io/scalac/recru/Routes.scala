@@ -38,7 +38,7 @@ class Routes(game: GameService) {
 
   private val moveRoute = path(Remaining) { gameId =>
     entity(as[IncomingMove]) { move =>
-      val makeAMoveF = game.move(GameId(gameId), Player(move.name), move.move)
+      val makeAMoveF = game.move(GameId("gameId"), Player(move.name), move.move)
       onComplete(makeAMoveF) {
         case Success(res) =>
           translateOutgoing(res) match {
@@ -55,7 +55,7 @@ class Routes(game: GameService) {
 
   val router = post {
     ignoreTrailingSlash {
-      path("game") {
+    pathPrefix("game") {
         moveRoute ~ addRoute
       }
     }
