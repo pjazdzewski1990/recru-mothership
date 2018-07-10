@@ -2,7 +2,6 @@ package io.scalac.recru
 
 import java.util.concurrent.TimeUnit
 
-import akka.Done
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.testkit.TestKit
@@ -21,22 +20,6 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   implicit val timeout = Timeout(3, TimeUnit.SECONDS)
   implicit override val patienceConfig =
     PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(100, Millis)))
-
-  class FakeMessages() extends Messages { //TODO: extract to a common class
-    override def listenLocation: String = ""
-
-    var gamesStarted = Seq.empty[Set[Model.Player]]
-    override def signalGameStart(players: Set[Model.Player]): Done = {
-      gamesStarted = gamesStarted :+ players
-      Done
-    }
-
-    var gamesUpdated = Seq.empty[(GameId, Player, Color, Move)]
-    override def signalGameUpdate(gameId: GameId, player: Player, color: Color, move: Move): Done = {
-      gamesUpdated = gamesUpdated :+ (gameId, player, color, move)
-      Done
-    }
-  }
 
   val player1 = Player("p1")
   val player2 = Player("p2")

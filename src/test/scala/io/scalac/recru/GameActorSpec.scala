@@ -2,7 +2,6 @@ package io.scalac.recru
 
 import java.util.concurrent.TimeUnit
 
-import akka.Done
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{TestKit, TestProbe}
@@ -29,22 +28,6 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   val player2 = Player("p2")
   val player3 = Player("p3")
 
-  class FakeMessages extends Messages {
-    override def listenLocation: String = ""
-
-    var seenPlayers: Set[Player] = Set.empty
-    override def signalGameStart(players: Set[Player]): Done = {
-      seenPlayers = seenPlayers ++ players
-      Done
-    }
-
-    var seenUpdates = Seq.empty[(GameId, Player, Color, Move)]
-    override def signalGameUpdate(gameId: GameId, player: Player, color: Color, move: Move): Done = {
-      seenUpdates = seenUpdates :+ (gameId, player, color, move)
-      Done
-    }
-  }
-
   "GameActor" should "start a game with 2 players after the timeout" in {
     val messages = new FakeMessages
     val manager = TestProbe()
@@ -56,7 +39,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     joined2F.futureValue mustBe a[Joined]
 
     eventually {
-      messages.seenPlayers mustBe Set(player1, player2)
+      messages.gamesStarted mustBe List(Set(player1, player2))
     }
     manager.expectMsg(GameStarted(Set(player1, player2)))
   }
@@ -71,7 +54,8 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     }
 
     eventually {
-      messages.seenPlayers.size mustBe GameActor.maxPlayersInGame
+      messages.gamesStarted.size mustBe 1
+      messages.gamesStarted.map(_.size).sum mustBe GameActor.maxPlayersInGame
     }
     manager.expectMsgClass(GameStarted(Set.empty).getClass)
   }
@@ -129,7 +113,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     joined2F.futureValue mustBe a[Joined]
 
     eventually {
-      messages.seenPlayers mustBe Set(player1, player2)
+      messages.gamesStarted mustBe List(Set(player1, player2))
     }
     manager.expectMsg(GameStarted(Set(player1, player2)))
 
@@ -144,7 +128,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     game ! JoinGame(player1)
     game ! JoinGame(player2)
     eventually {
-      messages.seenPlayers mustBe Set(player1, player2)
+      messages.gamesStarted mustBe List(Set(player1, player2))
     }
 
     (game ? PlayerMoves(player1, Red, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
@@ -180,7 +164,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     game ! JoinGame(player1)
     game ! JoinGame(player2)
     eventually {
-      messages.seenPlayers mustBe Set(player1, player2)
+      messages.gamesStarted mustBe List(Set(player1, player2))
     }
 
     (game ? PlayerMoves(player2, Purple, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
@@ -202,6 +186,31 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     eventually {
       messages.seenUpdates.length mustBe 3
       messages.seenUpdates.last mustBe (gameId, player1, Orange, BackOneField)
+    }
+  }
+
+  it should "accept moves until the game is won" in {
+    val messages = new FakeMessages
+    val manager = TestProbe()
+    val game = system.actorOf(
+      GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, randomizeColors = () => Seq(Red, Green))
+    )
+
+    game ! JoinGame(player1)
+    game ! JoinGame(player2)
+    eventually {
+      messages.gamesStarted mustBe List(Set(player1, player2))
+    }
+
+    for {
+      _ <- 0 until 10
+    } yield {
+      game ? PlayerMoves(player1, Red, ForwardOneField)
+      game ? PlayerMoves(player2, Green, ForwardOneField)
+    }
+
+    eventually {
+      messages.seenGameEnd mustBe Option((gameId, Seq(player1), Seq(player2)))
     }
   }
 

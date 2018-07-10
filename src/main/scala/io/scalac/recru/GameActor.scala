@@ -11,8 +11,9 @@ object GameActor {
   def props(gameId: GameId,
             manager: ActorRef,
             messages: Messages,
-            playersWaitTimeout: FiniteDuration): Props =
-    Props(new GameActor(gameId, manager, messages, playersWaitTimeout))
+            playersWaitTimeout: FiniteDuration,
+            randomizeColors: () => Seq[Color] = Colors.randomColors): Props =
+    Props(new GameActor(gameId, manager, messages, playersWaitTimeout, randomizeColors))
 
   sealed trait GameActorCommand // marker
   case class JoinGame(player: Player) extends GameActorCommand
@@ -34,7 +35,7 @@ object GameActorInternals {
   sealed trait State // marker
   case object WaitingForPlayers extends State
   case object WaitingForCommand extends State
-  case object Done extends State
+  case object GameDidEnd extends State
 
   case class GameData(playersInTheGame: Map[Color, Player], boardState: List[Seq[Color]], order: Stream[Player]) {
     def skipToNextPlayer(): GameData = {
@@ -74,12 +75,24 @@ object GameActorInternals {
   }
 
   def createOrderFromPlayers(s: Set[Player]): Stream[Player] = Stream.concat(s) #::: createOrderFromPlayers(s)
+
+
+  def gameShouldCarryOn(updatedBoard: GameData): Boolean = {
+    updatedBoard.boardState.last.isEmpty //did anyone reach the last field?
+  }
+
+  def signalGameEnd(messages: Messages, gameId: GameId, updatedBoard: GameData) = {
+    val gameWinners = updatedBoard.boardState.last.flatMap(updatedBoard.playersInTheGame.get)
+    val gameLosers = updatedBoard.playersInTheGame.values.filterNot(gameWinners.contains)
+    messages.signalGameEnd(gameId, winners = gameWinners, losers = gameLosers.toSeq)
+  }
 }
 
 class GameActor(gameId: GameId,
                 manager: ActorRef,
                 messages: Messages,
-                playersWaitTimeout: FiniteDuration) extends FSM[State, GameData] {
+                playersWaitTimeout: FiniteDuration,
+                randomOrder: () => Seq[Color]) extends FSM[State, GameData] {
   import GameActor._
   import GameActorInternals._
 
@@ -88,7 +101,7 @@ class GameActor(gameId: GameId,
   when(WaitingForPlayers, playersWaitTimeout) {
     case Event(JoinGame(p), data) if data.playersInTheGame.size < maxPlayersInGame =>
 
-      val color = Colors.randomColors().find(!data.playersInTheGame.contains(_)).get //TODO: this .get should never fail, but more safety would be appreciated
+      val color = randomOrder().find(!data.playersInTheGame.contains(_)).get //TODO: this .get should never fail, but more safety would be appreciated
       val updated = data.copy(playersInTheGame = data.playersInTheGame + (color -> p))
       sender() ! Joined(color)
 
@@ -122,7 +135,19 @@ class GameActor(gameId: GameId,
     case Event(PlayerMoves(p, c, m), data) if data.order.head == p =>
       messages.signalGameUpdate(gameId, p, c, m)
       sender() ! Moved
-      stay() using data.skipToNextPlayer().updateBoard(c, m)
+      val updatedBoard = data.skipToNextPlayer().updateBoard(c, m)
+
+      if(gameShouldCarryOn(updatedBoard)) {
+        stay() using updatedBoard
+      } else {
+        signalGameEnd(messages, gameId, updatedBoard)
+        goto(GameDidEnd) using updatedBoard
+      }
+  }
+
+  when(GameDidEnd) {
+    case Event(_, _) => //TODO: reply in case of getting a move command or join
+      stay()
   }
 
   whenUnhandled {
