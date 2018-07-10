@@ -7,11 +7,21 @@ object Model {
   case class Player(name: String) extends AnyVal
   case class GameId(v: String) extends AnyVal
 
-  sealed trait Move
-  case object BackTwoFields extends Move
-  case object BackOneField extends Move
-  case object ForwardOneField extends Move
-  case object ForwardTwoFields extends Move
+  sealed trait Move {
+    def moveValue: Int
+  }
+  case object BackTwoFields extends Move {
+    override val moveValue: Int = -2
+  }
+  case object BackOneField extends Move {
+    override val moveValue: Int = -1
+  }
+  case object ForwardOneField extends Move {
+    override val moveValue: Int = 1
+  }
+  case object ForwardTwoFields extends Move {
+    override val moveValue: Int = 2
+  }
 
   sealed trait Color
   case object Yellow extends Color

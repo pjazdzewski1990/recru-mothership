@@ -23,7 +23,7 @@ object GameActor {
   case object GameIsAlreadyRunning extends JoinResult
 
   sealed trait MoveResult
-  case object NotYourTurn extends MoveResult //TODO: handle 0 moves?
+  case object NotYourTurn extends MoveResult
   case object Moved extends MoveResult
 
   val maxPlayersInGame = 6
@@ -36,19 +36,44 @@ object GameActorInternals {
   case object WaitingForCommand extends State
   case object Done extends State
 
-  case class GameData(playersInTheGame: Map[Color, Player], boardState: Seq[Seq[Player]], order: Option[Stream[Player]]) {
+  case class GameData(playersInTheGame: Map[Color, Player], boardState: List[Seq[Color]], order: Stream[Player]) {
     def skipToNextPlayer(): GameData = {
-      copy(order = order.map(_.drop(1)))
+      copy(order = order.drop(1))
     }
 
-    def updateBoard(): GameData = {
-      this //TODO: implement movement
+    def updateBoard(color: Color, move: Move): GameData = {
+      // TODO: should never fail if board is constructed right, but more safety would be appreciated
+      val (fieldContainingColor, fieldContainingColorIdx) = boardState.zipWithIndex.find(_._1.contains(color)).get
+      val fieldToPutTheColorIdx = Math.max(0, Math.min(boardState.size - 1, fieldContainingColorIdx + move.moveValue))
+
+      val (notMovingThisTurn, movingThisTurn) = if(fieldContainingColorIdx != 0 && fieldContainingColorIdx != boardState.size - 1) {
+        fieldContainingColor.splitAt(fieldContainingColor.indexOf(color))
+      } else {
+        (fieldContainingColor.filter(_ != color), fieldContainingColor.filter(_ == color))
+      }
+      val boardWithColorRemoved: List[Seq[Color]] = boardState.patch(
+        from = fieldContainingColorIdx,
+        patch = Seq(notMovingThisTurn),
+        replaced = 1)
+
+      val oldValuesAtUpdateIdx = boardWithColorRemoved(fieldToPutTheColorIdx)
+      val boardWithColorAddedAgain = boardWithColorRemoved.patch(
+        from = fieldToPutTheColorIdx,
+        patch = Seq(oldValuesAtUpdateIdx ++ movingThisTurn),
+        replaced = 1)
+
+      copy(boardState = boardWithColorAddedAgain)
     }
   }
 
-  def emptyField(size: Int = 10): Seq[Seq[Player]] = Seq.fill(size)(Seq.empty)
+  object GameData {
+    def empty(): GameData = {
+      val initialBoardState = Seq(Yellow, Orange, Red, Blue, Green, Purple) :: List.fill(9)(Seq.empty)
+      GameData(Map.empty, initialBoardState, createOrderFromPlayers(Set(Player(""))))
+    }
+  }
 
-  def createOrder(s: Set[Player]): Stream[Player] = Stream.concat(s) #::: createOrder(s)
+  def createOrderFromPlayers(s: Set[Player]): Stream[Player] = Stream.concat(s) #::: createOrderFromPlayers(s)
 }
 
 class GameActor(gameId: GameId,
@@ -58,7 +83,7 @@ class GameActor(gameId: GameId,
   import GameActor._
   import GameActorInternals._
 
-  startWith(WaitingForPlayers, GameData(Map.empty, Seq.empty, None))
+  startWith(WaitingForPlayers, GameData.empty())
 
   when(WaitingForPlayers, playersWaitTimeout) {
     case Event(JoinGame(p), data) if data.playersInTheGame.size < maxPlayersInGame =>
@@ -71,7 +96,7 @@ class GameActor(gameId: GameId,
         val players = updated.playersInTheGame.values.toSet
         messages.signalGameStart(players)
         //TODO: make sure you can't move to WaitingForCommand without setting the order
-        val orderOfPlayers = Option(createOrder(players))
+        val orderOfPlayers = createOrderFromPlayers(players)
         goto(WaitingForCommand) using updated.copy(order = orderOfPlayers)
       } else {
         stay() using updated
@@ -80,7 +105,7 @@ class GameActor(gameId: GameId,
     case Event(StateTimeout, data) if data.playersInTheGame.size > 1 =>
       val players = data.playersInTheGame.values.toSet
       messages.signalGameStart(players)
-      val orderOfPlayers = Option(createOrder(players))
+      val orderOfPlayers = createOrderFromPlayers(players)
       goto(WaitingForCommand) using data.copy(order = orderOfPlayers)
   }
 
@@ -91,13 +116,13 @@ class GameActor(gameId: GameId,
   }
 
   when(WaitingForCommand) {
-    case Event(PlayerMoves(p, _, _), data) if data.order.map(_.head != p).getOrElse(true) =>
+    case Event(PlayerMoves(p, _, _), data) if data.order.head != p =>
       sender() ! NotYourTurn
       stay()
-    case Event(PlayerMoves(p, c, m), data) if data.order.map(_.head == p).getOrElse(false) =>
+    case Event(PlayerMoves(p, c, m), data) if data.order.head == p =>
       messages.signalGameUpdate(gameId, p, c, m)
       sender() ! Moved
-      stay() using data.skipToNextPlayer().updateBoard()
+      stay() using data.skipToNextPlayer().updateBoard(c, m)
   }
 
   whenUnhandled {
