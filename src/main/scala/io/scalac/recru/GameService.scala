@@ -21,7 +21,7 @@ object GameService {
 trait GameService {
   import GameService._
   def searchForAGame(p: Player): Future[Game]
-  def move(game: GameId, p: Player, move: Int): Future[MoveResult]
+  def move(game: GameId, p: Player, move: Move): Future[MoveResult]
 }
 
 case class ActorGameService(gameManager: ActorRef)(implicit ec: ExecutionContext) extends GameService {
@@ -36,17 +36,12 @@ case class ActorGameService(gameManager: ActorRef)(implicit ec: ExecutionContext
     }
   }
 
-  private val allowedMoves = Seq(-2, -1, 1, 2)
-  override def move(game: GameId, player: Player, move: Int): Future[MoveResult] = {
-    if(allowedMoves.contains(move)) {
-      (gameManager ? GameManagerActor.MakeAMove(game, player, move)).map {
-        case GameManagerActor.Moved =>
-          Moved
-        case GameManagerActor.NotYourTurn =>
-          WrongTurn
-      }
-    } else {
-      Future.successful(InvalidMove)
+  override def move(game: GameId, player: Player, move: Move): Future[MoveResult] = {
+    (gameManager ? GameManagerActor.MakeAMove(game, player, move)).map {
+      case GameManagerActor.Moved =>
+        Moved
+      case GameManagerActor.NotYourTurn =>
+        WrongTurn
     }
   }
 }

@@ -16,14 +16,14 @@ object GameActor {
 
   sealed trait GameActorCommand // marker
   case class JoinGame(player: Player) extends GameActorCommand
-  case class PlayerMoves(player: Player, move: Int) extends GameActorCommand
+  case class PlayerMoves(player: Player, move: Move) extends GameActorCommand
 
   sealed trait JoinResult
   case object Joined extends JoinResult
   case object GameIsAlreadyRunning extends JoinResult
 
   sealed trait MoveResult
-  case object NotYourTurn extends MoveResult //TODO: handle 0?
+  case object NotYourTurn extends MoveResult //TODO: handle 0 moves?
   case object Moved extends MoveResult
 
   val maxPlayersInGame = 6
@@ -37,10 +37,13 @@ object GameActorInternals {
   case object Done extends State
 
   case class GameData(playersInTheGame: Set[Player], boardState: Seq[Seq[Player]], order: Option[Stream[Player]]) {
-    def nextStep(): GameData = {
+    def skipToNextPlayer(): GameData = {
       copy(order = order.map(_.drop(1)))
     }
 
+    def updateBoard(): GameData = {
+      this //TODO: implement movement
+    }
   }
 
   def emptyField(size: Int = 10): Seq[Seq[Player]] = Seq.fill(size)(Seq.empty)
@@ -91,7 +94,7 @@ class GameActor(gameId: GameId,
     case Event(PlayerMoves(p, m), data) if data.order.map(_.head == p).getOrElse(false) =>
       messages.signalGameUpdate(gameId, p, m)
       sender() ! Moved
-      stay() using data.nextStep()//TODO: UPDATE the board
+      stay() using data.skipToNextPlayer().updateBoard()
   }
 
   whenUnhandled {

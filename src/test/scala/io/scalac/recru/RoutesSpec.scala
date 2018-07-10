@@ -1,7 +1,7 @@
 package io.scalac.recru
 
 import akka.http.scaladsl.model.StatusCodes
-import io.scalac.recru.Model.GameId
+import io.scalac.recru.Model.{GameId, Move}
 import org.scalatest.{FlatSpecLike, MustMatchers}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import io.scalac.recru.Protocol._
@@ -16,7 +16,7 @@ class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest 
     override def searchForAGame(p: Model.Player): Future[GameService.Game] = Future.successful(
       GameService.Game(GameId("game"), "kafka-topic")
     )
-    override def move(game: Model.GameId, p: Model.Player, move: Int): Future[GameService.MoveResult] = Future.successful(
+    override def move(game: Model.GameId, p: Model.Player, move: Move): Future[GameService.MoveResult] = Future.successful(
       GameService.Moved
     )
   }
@@ -39,7 +39,7 @@ class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest 
   it should "reject invalid moves" in {
     val rejectingGame = new GameService {
       override def searchForAGame(p: Model.Player): Future[GameService.Game] = ???
-      override def move(game: Model.GameId, p: Model.Player, move: Int): Future[GameService.MoveResult] = Future.successful(
+      override def move(game: Model.GameId, p: Model.Player, move: Move): Future[GameService.MoveResult] = Future.successful(
         GameService.InvalidMove
       )
     }
@@ -53,7 +53,7 @@ class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest 
   it should "reject moves out of order" in {
     val rejectingGame = new GameService {
       override def searchForAGame(p: Model.Player): Future[GameService.Game] = ???
-      override def move(game: Model.GameId, p: Model.Player, move: Int): Future[GameService.MoveResult] = Future.successful(
+      override def move(game: Model.GameId, p: Model.Player, move: Move): Future[GameService.MoveResult] = Future.successful(
         GameService.WrongTurn
       )
     }

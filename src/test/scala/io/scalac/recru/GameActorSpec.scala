@@ -37,8 +37,8 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       Done
     }
 
-    var seenUpdates = Seq.empty[(GameId, Player, Int)]
-    override def signalGameUpdate(gameId: GameId, player: Player, move: Int): Done = {
+    var seenUpdates = Seq.empty[(GameId, Player, Move)]
+    override def signalGameUpdate(gameId: GameId, player: Player, move: Move): Done = {
       seenUpdates = seenUpdates :+ (gameId, player, move)
       Done
     }
@@ -124,28 +124,28 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       messages.seenPlayers mustBe Set(player1, player2)
     }
 
-    (game ? PlayerMoves(player1, 2)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player1, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 1
-      messages.seenUpdates.last mustBe (gameId, player1, 2)
+      messages.seenUpdates.last mustBe (gameId, player1, ForwardTwoFields)
     }
 
-    (game ? PlayerMoves(player2, 1)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 2
-      messages.seenUpdates.last mustBe (gameId, player2, 1)
+      messages.seenUpdates.last mustBe (gameId, player2, ForwardOneField)
     }
 
-    (game ? PlayerMoves(player1, -1)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player1, BackOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 3
-      messages.seenUpdates.last mustBe (gameId, player1, -1)
+      messages.seenUpdates.last mustBe (gameId, player1, BackOneField)
     }
 
-    (game ? PlayerMoves(player2, -2)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, BackTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 4
-      messages.seenUpdates.last mustBe (gameId, player2, -2)
+      messages.seenUpdates.last mustBe (gameId, player2, BackTwoFields)
     }
   }
 
@@ -160,25 +160,25 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       messages.seenPlayers mustBe Set(player1, player2)
     }
 
-    (game ? PlayerMoves(player2, 2)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
-    (game ? PlayerMoves(player1, 2)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
+    (game ? PlayerMoves(player1, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 1
-      messages.seenUpdates.last mustBe (gameId, player1, 2)
+      messages.seenUpdates.last mustBe (gameId, player1, ForwardTwoFields)
     }
 
-    (game ? PlayerMoves(player1, 1)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
-    (game ? PlayerMoves(player2, 1)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player1, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
+    (game ? PlayerMoves(player2, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 2
-      messages.seenUpdates.last mustBe (gameId, player2, 1)
+      messages.seenUpdates.last mustBe (gameId, player2, ForwardOneField)
     }
 
-    (game ? PlayerMoves(player2, -1)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
-    (game ? PlayerMoves(player1, -1)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, BackOneField)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
+    (game ? PlayerMoves(player1, BackOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 3
-      messages.seenUpdates.last mustBe (gameId, player1, -1)
+      messages.seenUpdates.last mustBe (gameId, player1, BackOneField)
     }
   }
 }

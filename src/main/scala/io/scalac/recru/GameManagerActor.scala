@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext
 object GameManagerActor {
   sealed trait GameManagerCommand
   case class FindGameForPlayer(player: Player) extends GameManagerCommand
-  case class MakeAMove(game: GameId, player: Player, move: Int) extends GameManagerCommand
+  case class MakeAMove(game: GameId, player: Player, move: Move) extends GameManagerCommand
 
   case class GameStarted(players: Set[Player]) extends GameManagerCommand
 

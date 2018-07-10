@@ -8,7 +8,7 @@ import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
 import io.scalac.recru.GameManagerActor._
-import io.scalac.recru.Model.{GameId, Player}
+import io.scalac.recru.Model.{ForwardOneField, GameId, Move, Player}
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, MustMatchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.time.{Millis, Seconds, Span}
@@ -31,8 +31,8 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
       Done
     }
 
-    var gamesUpdated = Seq.empty[(GameId, Player, Int)]
-    override def signalGameUpdate(gameId: GameId, player: Player, move: Int): Done = {
+    var gamesUpdated = Seq.empty[(GameId, Player, Move)]
+    override def signalGameUpdate(gameId: GameId, player: Player, move: Move): Done = {
       gamesUpdated = gamesUpdated :+ (gameId, player, move)
       Done
     }
@@ -83,12 +83,12 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
     val found = (manager ? FindGameForPlayer(player1)).futureValue
     found mustBe a[Found]
     val gid = found.asInstanceOf[Found].game
-    (manager ? MakeAMove(gid, player1, move = 1)).futureValue mustBe a[NotYourTurn.type]
+    (manager ? MakeAMove(gid, player1, move = ForwardOneField)).futureValue mustBe a[NotYourTurn.type]
 
     manager ? FindGameForPlayer(player2)
     eventually {
       msg.gamesStarted.length mustBe 1
     }
-    (manager ? MakeAMove(gid, player1, move = 1)).futureValue mustBe a[Moved.type]
+    (manager ? MakeAMove(gid, player1, move = ForwardOneField)).futureValue mustBe a[Moved.type]
   }
 }
