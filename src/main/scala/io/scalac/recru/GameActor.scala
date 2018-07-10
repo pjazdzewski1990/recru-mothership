@@ -16,10 +16,10 @@ object GameActor {
 
   sealed trait GameActorCommand // marker
   case class JoinGame(player: Player) extends GameActorCommand
-  case class PlayerMoves(player: Player, move: Move) extends GameActorCommand
+  case class PlayerMoves(player: Player, whichColorToMove: Color, move: Move) extends GameActorCommand
 
   sealed trait JoinResult
-  case object Joined extends JoinResult
+  case class Joined(colorAssigned: Color) extends JoinResult
   case object GameIsAlreadyRunning extends JoinResult
 
   sealed trait MoveResult
@@ -36,7 +36,7 @@ object GameActorInternals {
   case object WaitingForCommand extends State
   case object Done extends State
 
-  case class GameData(playersInTheGame: Set[Player], boardState: Seq[Seq[Player]], order: Option[Stream[Player]]) {
+  case class GameData(playersInTheGame: Map[Color, Player], boardState: Seq[Seq[Player]], order: Option[Stream[Player]]) {
     def skipToNextPlayer(): GameData = {
       copy(order = order.map(_.drop(1)))
     }
@@ -58,41 +58,44 @@ class GameActor(gameId: GameId,
   import GameActor._
   import GameActorInternals._
 
-  startWith(WaitingForPlayers, GameData(Set.empty, Seq.empty, None))
+  startWith(WaitingForPlayers, GameData(Map.empty, Seq.empty, None))
 
   when(WaitingForPlayers, playersWaitTimeout) {
     case Event(JoinGame(p), data) if data.playersInTheGame.size < maxPlayersInGame =>
-      val updated = data.copy(playersInTheGame = data.playersInTheGame + p)
 
-      sender() ! Joined
+      val color = Colors.randomColors().find(!data.playersInTheGame.contains(_)).get //TODO: this .get should never fail, but more safety would be appreciated
+      val updated = data.copy(playersInTheGame = data.playersInTheGame + (color -> p))
+      sender() ! Joined(color)
 
       if(updated.playersInTheGame.size == maxPlayersInGame) {
-        messages.signalGameStart(updated.playersInTheGame)
+        val players = updated.playersInTheGame.values.toSet
+        messages.signalGameStart(players)
         //TODO: make sure you can't move to WaitingForCommand without setting the order
-        val orderOfPlayers = Option(createOrder(updated.playersInTheGame))
+        val orderOfPlayers = Option(createOrder(players))
         goto(WaitingForCommand) using updated.copy(order = orderOfPlayers)
       } else {
         stay() using updated
       }
 
     case Event(StateTimeout, data) if data.playersInTheGame.size > 1 =>
-      messages.signalGameStart(data.playersInTheGame)
-      val orderOfPlayers = Option(createOrder(data.playersInTheGame))
+      val players = data.playersInTheGame.values.toSet
+      messages.signalGameStart(players)
+      val orderOfPlayers = Option(createOrder(players))
       goto(WaitingForCommand) using data.copy(order = orderOfPlayers)
   }
 
   onTransition {
     case WaitingForPlayers -> WaitingForCommand =>
       log.info("Game {} started", gameId)
-      manager ! GameStarted(stateData.playersInTheGame)
+      manager ! GameStarted(stateData.playersInTheGame.values.toSet)
   }
 
   when(WaitingForCommand) {
-    case Event(PlayerMoves(p, _), data) if data.order.map(_.head != p).getOrElse(true) =>
+    case Event(PlayerMoves(p, _, _), data) if data.order.map(_.head != p).getOrElse(true) =>
       sender() ! NotYourTurn
       stay()
-    case Event(PlayerMoves(p, m), data) if data.order.map(_.head == p).getOrElse(false) =>
-      messages.signalGameUpdate(gameId, p, m)
+    case Event(PlayerMoves(p, c, m), data) if data.order.map(_.head == p).getOrElse(false) =>
+      messages.signalGameUpdate(gameId, p, c, m)
       sender() ! Moved
       stay() using data.skipToNextPlayer().updateBoard()
   }

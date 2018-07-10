@@ -8,7 +8,7 @@ import akka.pattern.ask
 import akka.testkit.TestKit
 import akka.util.Timeout
 import io.scalac.recru.GameManagerActor._
-import io.scalac.recru.Model.{ForwardOneField, GameId, Move, Player}
+import io.scalac.recru.Model._
 import org.scalatest.{BeforeAndAfter, FlatSpecLike, MustMatchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.time.{Millis, Seconds, Span}
@@ -22,7 +22,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   implicit override val patienceConfig =
     PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(100, Millis)))
 
-  class FakeMessages() extends Messages {
+  class FakeMessages() extends Messages { //TODO: extract to a common class
     override def listenLocation: String = ""
 
     var gamesStarted = Seq.empty[Set[Model.Player]]
@@ -31,9 +31,9 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
       Done
     }
 
-    var gamesUpdated = Seq.empty[(GameId, Player, Move)]
-    override def signalGameUpdate(gameId: GameId, player: Player, move: Move): Done = {
-      gamesUpdated = gamesUpdated :+ (gameId, player, move)
+    var gamesUpdated = Seq.empty[(GameId, Player, Color, Move)]
+    override def signalGameUpdate(gameId: GameId, player: Player, color: Color, move: Move): Done = {
+      gamesUpdated = gamesUpdated :+ (gameId, player, color, move)
       Done
     }
   }
@@ -46,9 +46,9 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   "GameManagerActor" should "create a new game then moves games from waiting to running" in {
     val msg = new FakeMessages()
     val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second)))
-    (manager ? FindGameForPlayer(player1)).futureValue mustBe a[Found]
-    (manager ? FindGameForPlayer(player2)).futureValue mustBe a[Found]
-    (manager ? FindGameForPlayer(player3)).futureValue mustBe a[Found]
+    (manager ? FindGameForPlayer(player1)).futureValue mustBe a[GameFound]
+    (manager ? FindGameForPlayer(player2)).futureValue mustBe a[GameFound]
+    (manager ? FindGameForPlayer(player3)).futureValue mustBe a[GameFound]
     eventually {
       msg.gamesStarted.length mustBe 1
       msg.gamesStarted.head mustBe Set(player1, player2, player3)
@@ -59,16 +59,16 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
     val msg = new FakeMessages()
     val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second)))
 
-    (manager ? FindGameForPlayer(player1)).futureValue mustBe a[Found]
-    (manager ? FindGameForPlayer(player2)).futureValue mustBe a[Found]
+    (manager ? FindGameForPlayer(player1)).futureValue mustBe a[GameFound]
+    (manager ? FindGameForPlayer(player2)).futureValue mustBe a[GameFound]
 
     eventually {
       msg.gamesStarted.length mustBe 1
       msg.gamesStarted.head mustBe Set(player1, player2)
     }
 
-    (manager ? FindGameForPlayer(player3)).futureValue mustBe a[Found]
-    (manager ? FindGameForPlayer(player4)).futureValue mustBe a[Found]
+    (manager ? FindGameForPlayer(player3)).futureValue mustBe a[GameFound]
+    (manager ? FindGameForPlayer(player4)).futureValue mustBe a[GameFound]
 
     eventually {
       msg.gamesStarted.length mustBe 2
@@ -81,14 +81,14 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
     val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second)))
 
     val found = (manager ? FindGameForPlayer(player1)).futureValue
-    found mustBe a[Found]
-    val gid = found.asInstanceOf[Found].game
-    (manager ? MakeAMove(gid, player1, move = ForwardOneField)).futureValue mustBe a[NotYourTurn.type]
+    found mustBe a[GameFound]
+    val gid = found.asInstanceOf[GameFound].game
+    (manager ? MakeAMove(gid, player1, Red, ForwardOneField)).futureValue mustBe a[NotYourTurn.type]
 
     manager ? FindGameForPlayer(player2)
     eventually {
       msg.gamesStarted.length mustBe 1
     }
-    (manager ? MakeAMove(gid, player1, move = ForwardOneField)).futureValue mustBe a[Moved.type]
+    (manager ? MakeAMove(gid, player1, Green, ForwardOneField)).futureValue mustBe a[Moved.type]
   }
 }

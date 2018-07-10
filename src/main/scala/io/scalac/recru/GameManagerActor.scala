@@ -15,12 +15,12 @@ import scala.concurrent.ExecutionContext
 object GameManagerActor {
   sealed trait GameManagerCommand
   case class FindGameForPlayer(player: Player) extends GameManagerCommand
-  case class MakeAMove(game: GameId, player: Player, move: Move) extends GameManagerCommand
+  case class MakeAMove(game: GameId, player: Player, whichColorToMove: Color, move: Move) extends GameManagerCommand
 
   case class GameStarted(players: Set[Player]) extends GameManagerCommand
 
   sealed trait FindGameResult
-  case class Found(game: GameId, listenOn: String) extends FindGameResult
+  case class GameFound(game: GameId, listenOn: String, colorAssigned: Color) extends FindGameResult
 
   sealed trait MakeAMoveResult
   case object NotYourTurn extends MakeAMoveResult
@@ -58,11 +58,11 @@ class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration) e
       val gameThatStarted = gameWaiting.get
       context.become(handleCommands(gamesRunning + (gameThatStarted.id -> gameThatStarted.ref), None))
 
-    case MakeAMove(gid, player, move) =>
+    case MakeAMove(gid, player, colorToMove, move) =>
       val replyTo = sender()
       gamesRunning.get(gid).map { ref =>
         log.info("Player {} is going to move in {}", player, gid)
-        (ref ? GameActor.PlayerMoves(player, move)).mapTo[GameActor.MoveResult].map {
+        (ref ? GameActor.PlayerMoves(player, colorToMove, move)).mapTo[GameActor.MoveResult].map {
           case GameActor.Moved =>
             replyTo ! GameManagerActor.Moved
           case GameActor.NotYourTurn =>
@@ -79,9 +79,9 @@ class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration) e
     val retryWith = self
 
     (gameWaiting.ref ? GameActor.JoinGame(request.player)).mapTo[JoinResult].foreach {
-      case GameActor.Joined =>
+      case GameActor.Joined(color) =>
         log.info("Player {} joined {}", request.player, gameWaiting.id)
-        replyTo ! Found(gameWaiting.id, messages.listenLocation)
+        replyTo ! GameFound(gameWaiting.id, messages.listenLocation, color)
       case _ =>
         // we will try again in a moment, but we need to overwrite the sender so reply will arrive correctly
         retryWith.tell(request, replyTo)

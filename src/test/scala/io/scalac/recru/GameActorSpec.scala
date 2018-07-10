@@ -37,9 +37,9 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       Done
     }
 
-    var seenUpdates = Seq.empty[(GameId, Player, Move)]
-    override def signalGameUpdate(gameId: GameId, player: Player, move: Move): Done = {
-      seenUpdates = seenUpdates :+ (gameId, player, move)
+    var seenUpdates = Seq.empty[(GameId, Player, Color, Move)]
+    override def signalGameUpdate(gameId: GameId, player: Player, color: Color, move: Move): Done = {
+      seenUpdates = seenUpdates :+ (gameId, player, color, move)
       Done
     }
   }
@@ -51,8 +51,8 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     val joined1F = game ? JoinGame(player1)
     val joined2F = game ? JoinGame(player2)
 
-    joined1F.futureValue mustBe a[Joined.type]
-    joined2F.futureValue mustBe a[Joined.type]
+    joined1F.futureValue mustBe a[Joined]
+    joined2F.futureValue mustBe a[Joined]
 
     eventually {
       messages.seenPlayers mustBe Set(player1, player2)
@@ -66,7 +66,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 99.hours))
 
     (1 to GameActor.maxPlayersInGame).map(x => Player(x.toString)).map{ p =>
-      (game ? JoinGame(p)).futureValue mustBe a[Joined.type]
+      (game ? JoinGame(p)).futureValue mustBe a[Joined]
     }
 
     eventually {
@@ -83,7 +83,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     val players = (1 to GameActor.maxPlayersInGame * 2).map(x => Player(x.toString))
 
     players.take(GameActor.maxPlayersInGame).map{ p =>
-      (game ? JoinGame(p)).futureValue mustBe a[Joined.type]
+      (game ? JoinGame(p)).futureValue mustBe a[Joined]
     }
 
     players.drop(GameActor.maxPlayersInGame).map{ p =>
@@ -95,6 +95,28 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     1 mustBe 2
   }
 
+  //NOTE: there's a slight chance that this test might fail due to randomness
+  it should "make sure that every player in a game has a distinct color and the order of color assignment is different game-to-game" in {
+    val messages = new FakeMessages
+    val manager = TestProbe()
+
+    def getAssignedColors(): Seq[Color] = {
+      val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.hour))
+      (0 until GameActor.maxPlayersInGame).map {idx =>
+        (game ? JoinGame(Player("p_" + idx.toString))).mapTo[Joined].futureValue.colorAssigned
+      }
+    }
+
+    val colorsInRounds = for {
+      _ <- 0 until 3
+    } yield {
+      val colors = getAssignedColors()
+      colors.distinct.size mustBe colors.size // they are only distinct values
+      colors
+    }
+    colorsInRounds.distinct.size mustBe colorsInRounds.size // there are only distinct combination
+  }
+
   it should "reject players who want to join a running game" in {
     val messages = new FakeMessages
     val manager = TestProbe()
@@ -102,8 +124,8 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     val joined1F = game ? JoinGame(player1)
     val joined2F = game ? JoinGame(player2)
 
-    joined1F.futureValue mustBe a[Joined.type]
-    joined2F.futureValue mustBe a[Joined.type]
+    joined1F.futureValue mustBe a[Joined]
+    joined2F.futureValue mustBe a[Joined]
 
     eventually {
       messages.seenPlayers mustBe Set(player1, player2)
@@ -124,28 +146,28 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       messages.seenPlayers mustBe Set(player1, player2)
     }
 
-    (game ? PlayerMoves(player1, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player1, Red, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 1
-      messages.seenUpdates.last mustBe (gameId, player1, ForwardTwoFields)
+      messages.seenUpdates.last mustBe (gameId, player1, Red, ForwardTwoFields)
     }
 
-    (game ? PlayerMoves(player2, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, Green, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 2
-      messages.seenUpdates.last mustBe (gameId, player2, ForwardOneField)
+      messages.seenUpdates.last mustBe (gameId, player2, Green, ForwardOneField)
     }
 
-    (game ? PlayerMoves(player1, BackOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player1, Green, BackOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 3
-      messages.seenUpdates.last mustBe (gameId, player1, BackOneField)
+      messages.seenUpdates.last mustBe (gameId, player1, Green, BackOneField)
     }
 
-    (game ? PlayerMoves(player2, BackTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, Purple, BackTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 4
-      messages.seenUpdates.last mustBe (gameId, player2, BackTwoFields)
+      messages.seenUpdates.last mustBe (gameId, player2, Purple, BackTwoFields)
     }
   }
 
@@ -160,25 +182,25 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       messages.seenPlayers mustBe Set(player1, player2)
     }
 
-    (game ? PlayerMoves(player2, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
-    (game ? PlayerMoves(player1, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, Purple, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
+    (game ? PlayerMoves(player1, Purple, ForwardTwoFields)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 1
-      messages.seenUpdates.last mustBe (gameId, player1, ForwardTwoFields)
+      messages.seenUpdates.last mustBe (gameId, player1, Purple,  ForwardTwoFields)
     }
 
-    (game ? PlayerMoves(player1, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
-    (game ? PlayerMoves(player2, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player1, Red, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
+    (game ? PlayerMoves(player2, Red, ForwardOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 2
-      messages.seenUpdates.last mustBe (gameId, player2, ForwardOneField)
+      messages.seenUpdates.last mustBe (gameId, player2, Red, ForwardOneField)
     }
 
-    (game ? PlayerMoves(player2, BackOneField)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
-    (game ? PlayerMoves(player1, BackOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
+    (game ? PlayerMoves(player2, Orange, BackOneField)).mapTo[MoveResult].futureValue mustBe a[NotYourTurn.type]
+    (game ? PlayerMoves(player1, Orange, BackOneField)).mapTo[MoveResult].futureValue mustBe a[Moved.type]
     eventually {
       messages.seenUpdates.length mustBe 3
-      messages.seenUpdates.last mustBe (gameId, player1, BackOneField)
+      messages.seenUpdates.last mustBe (gameId, player1, Orange, BackOneField)
     }
   }
 }

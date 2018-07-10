@@ -1,6 +1,8 @@
 package io.scalac.recru
 
-// classes which utility goes beyond
+import scala.util.Random
+
+// classes which utility goes beyond a single service
 object Model {
   case class Player(name: String) extends AnyVal
   case class GameId(v: String) extends AnyVal
@@ -18,4 +20,17 @@ object Model {
   case object Blue extends Color
   case object Green extends Color
   case object Purple extends Color
+
+  object Colors {
+    def fromString(c: String): Color = c.toLowerCase match {
+      case "yellow" => Yellow
+      case "orange" => Orange
+      case "red" => Red
+      case "blue" => Blue
+      case "green" => Green
+      case "purple" => Purple
+    }
+
+    def randomColors(): Seq[Color] = Random.shuffle(Seq(Yellow, Orange, Red, Blue, Green, Purple))
+  }
 }

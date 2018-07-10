@@ -1,7 +1,7 @@
 package io.scalac.recru
 
 import akka.http.scaladsl.model.StatusCodes
-import io.scalac.recru.Model.{GameId, Move}
+import io.scalac.recru.Model.{Color, GameId, Move, Red}
 import org.scalatest.{FlatSpecLike, MustMatchers}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import io.scalac.recru.Protocol._
@@ -13,10 +13,10 @@ import scala.concurrent.Future
 class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest {
 
   val fakeGame = new GameService {
-    override def searchForAGame(p: Model.Player): Future[GameService.Game] = Future.successful(
-      GameService.Game(GameId("game"), "kafka-topic")
+    override def searchForAGame(p: Model.Player): Future[GameService.GameJoined] = Future.successful(
+      GameService.GameJoined(GameId("game"), "kafka-topic", Red)
     )
-    override def move(game: Model.GameId, p: Model.Player, move: Move): Future[GameService.MoveResult] = Future.successful(
+    override def move(game: Model.GameId, p: Model.Player, color: Color, move: Move): Future[GameService.MoveResult] = Future.successful(
       GameService.Moved
     )
   }
@@ -38,8 +38,8 @@ class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest 
 
   it should "reject invalid moves" in {
     val rejectingGame = new GameService {
-      override def searchForAGame(p: Model.Player): Future[GameService.Game] = ???
-      override def move(game: Model.GameId, p: Model.Player, move: Move): Future[GameService.MoveResult] = Future.successful(
+      override def searchForAGame(p: Model.Player): Future[GameService.GameJoined] = ???
+      override def move(game: Model.GameId, p: Model.Player, color: Color, move: Move): Future[GameService.MoveResult] = Future.successful(
         GameService.InvalidMove
       )
     }
@@ -52,8 +52,8 @@ class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest 
 
   it should "reject moves out of order" in {
     val rejectingGame = new GameService {
-      override def searchForAGame(p: Model.Player): Future[GameService.Game] = ???
-      override def move(game: Model.GameId, p: Model.Player, move: Move): Future[GameService.MoveResult] = Future.successful(
+      override def searchForAGame(p: Model.Player): Future[GameService.GameJoined] = ???
+      override def move(game: Model.GameId, p: Model.Player, color: Color, move: Move): Future[GameService.MoveResult] = Future.successful(
         GameService.WrongTurn
       )
     }
