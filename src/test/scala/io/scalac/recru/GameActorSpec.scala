@@ -76,9 +76,18 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     }
   }
 
-//  it should "end the game with a draw if nobody shows up" in {
-//    1 mustBe 2
-//  }
+  it should "end the game with a draw if nobody shows up" in {
+    val messages = new FakeMessages
+    val manager = TestProbe()
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second))
+    val joined1F = game ? JoinGame(player1)
+
+    joined1F.futureValue mustBe a[Joined]
+
+    eventually {
+      messages.seenGameEnd mustBe Option((gameId, Seq.empty, Seq(player1)))
+    }
+  }
 
   //NOTE: there's a slight chance that this test might fail due to randomness
   it should "make sure that every player in a game has a distinct color and the order of color assignment is different game-to-game" in {
@@ -213,6 +222,10 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       messages.seenGameEnd mustBe Option((gameId, Seq(player1), Seq(player2)))
     }
   }
+
+//  it should "end the game if any of the players fails to submit a move" in {
+//    1 mustBe 2
+//  }
 
   "GameData.updateBoard" should "not allow to move back from position 0" in {
     val data = GameData.empty()

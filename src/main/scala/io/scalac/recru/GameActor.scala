@@ -120,6 +120,9 @@ class GameActor(gameId: GameId,
       messages.signalGameStart(players)
       val orderOfPlayers = createOrderFromPlayers(players)
       goto(WaitingForCommand) using data.copy(order = orderOfPlayers)
+
+    case Event(StateTimeout, data) if data.playersInTheGame.size <= 1 =>
+      goto(GameDidEnd) using data
   }
 
   onTransition {
@@ -140,9 +143,14 @@ class GameActor(gameId: GameId,
       if(gameShouldCarryOn(updatedBoard)) {
         stay() using updatedBoard
       } else {
-        signalGameEnd(messages, gameId, updatedBoard)
         goto(GameDidEnd) using updatedBoard
       }
+  }
+
+  onTransition {
+    case _ -> GameDidEnd =>
+      log.info("Game {} did end", gameId)
+      signalGameEnd(messages, gameId, nextStateData)
   }
 
   when(GameDidEnd) {
