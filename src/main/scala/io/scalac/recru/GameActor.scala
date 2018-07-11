@@ -107,7 +107,6 @@ class GameActor(gameId: GameId,
 
       if(updated.playersInTheGame.size == maxPlayersInGame) {
         val players = updated.playersInTheGame.values.toSet
-        messages.signalGameStart(players)
         //TODO: make sure you can't move to WaitingForCommand without setting the order
         val orderOfPlayers = createOrderFromPlayers(players)
         goto(WaitingForCommand) using updated.copy(order = orderOfPlayers)
@@ -117,7 +116,6 @@ class GameActor(gameId: GameId,
 
     case Event(StateTimeout, data) if data.playersInTheGame.size > 1 =>
       val players = data.playersInTheGame.values.toSet
-      messages.signalGameStart(players)
       val orderOfPlayers = createOrderFromPlayers(players)
       goto(WaitingForCommand) using data.copy(order = orderOfPlayers)
 
@@ -128,7 +126,8 @@ class GameActor(gameId: GameId,
   onTransition {
     case WaitingForPlayers -> WaitingForCommand =>
       log.info("Game {} started", gameId)
-      manager ! GameStarted(stateData.playersInTheGame.values.toSet)
+      manager ! GameStarted(nextStateData.playersInTheGame.values.toSet)
+      messages.signalGameStart(nextStateData.playersInTheGame.values.toSet)
   }
 
   when(WaitingForCommand) {
