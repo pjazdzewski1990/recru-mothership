@@ -31,7 +31,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   val player4 = Player("p4")
 
   "GameManagerActor" should "create a new game then moves games from waiting to running" in {
-    val msg = new FakeMessages()
+    val msg = new FakeSignals()
     val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
     (manager ? FindGameForPlayer(player1)).futureValue mustBe a[GameFound]
     (manager ? FindGameForPlayer(player2)).futureValue mustBe a[GameFound]
@@ -43,7 +43,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   }
 
   it should "create new games when needed" in{
-    val msg = new FakeMessages()
+    val msg = new FakeSignals()
     val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
 
     (manager ? FindGameForPlayer(player1)).futureValue mustBe a[GameFound]
@@ -64,7 +64,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   }
 
   it should "rejects moves to games that still accept players, but passes them when game does start" in {
-    val msg = new FakeMessages()
+    val msg = new FakeSignals()
     val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
 
     val found = (manager ? FindGameForPlayer(player1)).futureValue

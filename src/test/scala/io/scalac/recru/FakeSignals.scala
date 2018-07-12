@@ -2,9 +2,10 @@ package io.scalac.recru
 
 import akka.Done
 import io.scalac.recru.Model.{Color, GameId, Move, Player}
+import io.scalac.recru.Signals.SignalListenLocation
 
-class FakeMessages extends Messages {
-  override def listenLocation: String = ""
+class FakeSignals extends Signals {
+  override def listenLocation = SignalListenLocation("")
 
   var gamesStarted = Seq.empty[Set[Model.Player]]
   override def signalGameStart(gameId: GameId, players: Set[Player]): Done = {

@@ -6,6 +6,7 @@ import org.scalatest.{FlatSpecLike, MustMatchers}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import io.scalac.recru.Protocol._
 import io.scalac.recru.Protocol.IncomingPlayer
+import io.scalac.recru.Signals.SignalListenLocation
 import spray.json.{JsObject, JsString}
 
 import scala.concurrent.Future
@@ -14,7 +15,7 @@ class RoutesSpec extends FlatSpecLike with MustMatchers with ScalatestRouteTest 
 
   val fakeGame = new GameService {
     override def searchForAGame(p: Model.Player): Future[GameService.GameJoined] = Future.successful(
-      GameService.GameJoined(GameId("game"), "kafka-topic", Red)
+      GameService.GameJoined(GameId("game"), SignalListenLocation("kafka-topic"), Red)
     )
     override def move(game: Model.GameId, p: Model.Player, color: Color, move: Move): Future[GameService.MoveResult] = Future.successful(
       GameService.Moved

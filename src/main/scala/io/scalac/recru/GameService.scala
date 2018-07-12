@@ -10,7 +10,7 @@ import io.scalac.recru.Model._
 import scala.concurrent.{ExecutionContext, Future}
 
 object GameService {
-  case class GameJoined(id: GameId, listenOn: String, colorAssigned: Color)
+  case class GameJoined(id: GameId, listenOn: Signals.SignalListenLocation, colorAssigned: Color)
 
   sealed trait MoveResult
   case object Moved extends MoveResult

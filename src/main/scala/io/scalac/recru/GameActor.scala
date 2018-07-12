@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 object GameActor {
   def props(gameId: GameId,
             manager: ActorRef,
-            messages: Messages,
+            messages: Signals,
             playersWaitTimeout: FiniteDuration,
             playersMoveTimeout: FiniteDuration,
             randomizeColors: () => Seq[Color] = Colors.randomColors): Props =
@@ -85,13 +85,13 @@ object GameActorInternals {
     updatedBoard.boardState.last.isEmpty //did anyone reach the last field?
   }
 
-  def signalOnGameEnd(messages: Messages, gameId: GameId, updatedBoard: GameData) = {
+  def signalOnGameEnd(messages: Signals, gameId: GameId, updatedBoard: GameData) = {
     val gameWinners = updatedBoard.boardState.last.flatMap(updatedBoard.playersInTheGame.get)
     val gameLosers = updatedBoard.playersInTheGame.values.filterNot(gameWinners.contains)
     messages.signalGameEnd(gameId, winners = gameWinners, losers = gameLosers.toSeq)
   }
 
-  def signalOnMisbehave(messages: Messages, gameId: GameId, updatedBoard: GameData) = {
+  def signalOnMisbehave(messages: Signals, gameId: GameId, updatedBoard: GameData) = {
     // player did misbehave by not sending the command on time
     // we punish him by making him loose the game
     // TODO: this rule should be reviewed as it allows an attack vector: attach 2 players and make one misbehave causing the other one always win
@@ -103,7 +103,7 @@ object GameActorInternals {
 
 class GameActor(gameId: GameId,
                 manager: ActorRef,
-                messages: Messages,
+                messages: Signals,
                 playersWaitTimeout: FiniteDuration,
                 playersMoveTimeout: FiniteDuration,
                 randomOrder: () => Seq[Color]) extends FSM[State, GameData] {
@@ -155,6 +155,9 @@ class GameActor(gameId: GameId,
       val updatedBoard = data.skipToNextPlayer().updateBoard(c, m)
 
       if(gameShouldCarryOn(updatedBoard)) {
+        //NOTE: there is a difference between stay() and goto(the-same-state-you-are-in-now) here we goto as we are doing work
+        // in the case above we stay as no work is done
+        // in practice this means that we need to goto every time when we expect signalling to happen
         goto(WaitingForCommand) using updatedBoard
       } else {
         goto(GameDidEnd) using updatedBoard

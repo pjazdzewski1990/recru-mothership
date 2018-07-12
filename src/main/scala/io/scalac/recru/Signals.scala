@@ -2,17 +2,24 @@ package io.scalac.recru
 
 import akka.Done
 import io.scalac.recru.Model._
+import io.scalac.recru.Signals.SignalListenLocation
 
-trait Messages {
-  def listenLocation: String //TODO: stronger type-safety
+object Signals {
+  case class SignalListenLocation(v: String) extends AnyVal
+}
+
+trait Signals {
+  import Signals._
+
+  def listenLocation: SignalListenLocation
   def signalGameStart(gameId: GameId, players: Set[Player]): Done
   def signalTurn(gameId: GameId, playerMovingNow: Player): Done
   def signalGameUpdate(gameId: GameId, player: Player, movedColor: Color, move: Move): Done
   def signalGameEnd(gameId: GameId, winners: Seq[Player], losers: Seq[Player]): Done
 }
 
-class KafkaMessages extends Messages {
-  override val listenLocation = "foo-topic"
+class KafkaSignals extends Signals {
+  override val listenLocation = SignalListenLocation("foo-topic")
   override def signalGameStart(gameId: GameId, players: Set[Player]): Done = {
     println(s"Started a game ${gameId} with ${players}")
     Done

@@ -36,7 +36,7 @@ class Routes(game: GameService) {
     val joinGameF = game.searchForAGame(translateIncoming(p))
     onComplete(joinGameF) {
       case Success(gamePlayerJoined) =>
-        respondWithHeader(headers.RawHeader("X-listen-on", gamePlayerJoined.listenOn)) {
+        respondWithHeader(headers.RawHeader("X-listen-on", gamePlayerJoined.listenOn.v)) {
           complete(OK, translateOutgoing(gamePlayerJoined))
         }
       case Failure(ex) =>

@@ -20,13 +20,13 @@ object GameManagerActor {
   case class GameStarted(players: Set[Player]) extends GameManagerCommand
 
   sealed trait FindGameResult
-  case class GameFound(game: GameId, listenOn: String, colorAssigned: Color) extends FindGameResult
+  case class GameFound(game: GameId, listenOn: Signals.SignalListenLocation, colorAssigned: Color) extends FindGameResult
 
   sealed trait MakeAMoveResult
   case object NotYourTurn extends MakeAMoveResult
   case object Moved extends MakeAMoveResult
 
-  def props(messages: Messages) =
+  def props(messages: Signals) =
     Props(new GameManagerActor(messages, playersWaitTimeout = 30.seconds, playersMoveTimeout = 1.minute))
 }
 
@@ -34,7 +34,7 @@ object GameManagerInternals {
   case class CurrentlyWaitingGame(id: GameId, ref: ActorRef)
 }
 
-class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration, playersMoveTimeout: FiniteDuration) extends Actor with ActorLogging {
+class GameManagerActor(messages: Signals, playersWaitTimeout: FiniteDuration, playersMoveTimeout: FiniteDuration) extends Actor with ActorLogging {
   import GameManagerActor._
   import GameManagerInternals._
 
