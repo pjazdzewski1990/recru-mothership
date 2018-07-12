@@ -12,8 +12,9 @@ object GameActor {
             manager: ActorRef,
             messages: Messages,
             playersWaitTimeout: FiniteDuration,
+            playersMoveTimeout: FiniteDuration,
             randomizeColors: () => Seq[Color] = Colors.randomColors): Props =
-    Props(new GameActor(gameId, manager, messages, playersWaitTimeout, randomizeColors))
+    Props(new GameActor(gameId, manager, messages, playersWaitTimeout = playersWaitTimeout, playersMoveTimeout = playersMoveTimeout, randomizeColors))
 
   sealed trait GameActorCommand // marker
   case class JoinGame(player: Player) extends GameActorCommand
@@ -36,6 +37,7 @@ object GameActorInternals {
   case object WaitingForPlayers extends State
   case object WaitingForCommand extends State
   case object GameDidEnd extends State
+  case object PlayerMisbehaved extends State
 
   case class GameData(playersInTheGame: Map[Color, Player], boardState: List[Seq[Color]], order: Stream[Player]) {
     def skipToNextPlayer(): GameData = {
@@ -81,10 +83,19 @@ object GameActorInternals {
     updatedBoard.boardState.last.isEmpty //did anyone reach the last field?
   }
 
-  def signalGameEnd(messages: Messages, gameId: GameId, updatedBoard: GameData) = {
+  def signalOnGameEnd(messages: Messages, gameId: GameId, updatedBoard: GameData) = {
     val gameWinners = updatedBoard.boardState.last.flatMap(updatedBoard.playersInTheGame.get)
     val gameLosers = updatedBoard.playersInTheGame.values.filterNot(gameWinners.contains)
     messages.signalGameEnd(gameId, winners = gameWinners, losers = gameLosers.toSeq)
+  }
+
+  def signalOnMisbehave(messages: Messages, gameId: GameId, updatedBoard: GameData) = {
+    // player did misbehave by not sending the command on time
+    // we punish him by making him loose the game
+    // TODO: this rule should be reviewed as it allows an attack vector: attach 2 players and make one misbehave causing the other one always win
+    val gameLoser = updatedBoard.order.head
+    val gameWinners = updatedBoard.playersInTheGame.values.filterNot(_ == gameLoser)
+    messages.signalGameEnd(gameId, winners = gameWinners.toSeq, losers = Seq(gameLoser))
   }
 }
 
@@ -92,6 +103,7 @@ class GameActor(gameId: GameId,
                 manager: ActorRef,
                 messages: Messages,
                 playersWaitTimeout: FiniteDuration,
+                playersMoveTimeout: FiniteDuration,
                 randomOrder: () => Seq[Color]) extends FSM[State, GameData] {
   import GameActor._
   import GameActorInternals._
@@ -130,7 +142,7 @@ class GameActor(gameId: GameId,
       messages.signalGameStart(nextStateData.playersInTheGame.values.toSet)
   }
 
-  when(WaitingForCommand) {
+  when(WaitingForCommand, playersMoveTimeout) {
     case Event(PlayerMoves(p, _, _), data) if data.order.head != p =>
       sender() ! NotYourTurn
       stay()
@@ -144,15 +156,29 @@ class GameActor(gameId: GameId,
       } else {
         goto(GameDidEnd) using updatedBoard
       }
+
+    case Event(StateTimeout, data) =>
+      goto(PlayerMisbehaved) using data
   }
 
   onTransition {
     case _ -> GameDidEnd =>
       log.info("Game {} did end", gameId)
-      signalGameEnd(messages, gameId, nextStateData)
+      signalOnGameEnd(messages, gameId, nextStateData)
   }
 
   when(GameDidEnd) {
+    case Event(_, _) => //TODO: reply in case of getting a move command or join
+      stay()
+  }
+
+  onTransition {
+    case _ -> PlayerMisbehaved =>
+      log.info("Game {} did end. Player violated the liveness constraint", gameId)
+      signalOnMisbehave(messages, gameId, nextStateData)
+  }
+
+  when(PlayerMisbehaved) {
     case Event(_, _) => //TODO: reply in case of getting a move command or join
       stay()
   }

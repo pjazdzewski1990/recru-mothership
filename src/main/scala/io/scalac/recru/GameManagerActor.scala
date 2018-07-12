@@ -27,14 +27,14 @@ object GameManagerActor {
   case object Moved extends MakeAMoveResult
 
   def props(messages: Messages) =
-    Props(classOf[GameManagerActor], messages, 30.seconds)
+    Props(new GameManagerActor(messages, playersWaitTimeout = 30.seconds, playersMoveTimeout = 1.minute))
 }
 
 object GameManagerInternals {
   case class CurrentlyWaitingGame(id: GameId, ref: ActorRef)
 }
 
-class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration) extends Actor with ActorLogging {
+class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration, playersMoveTimeout: FiniteDuration) extends Actor with ActorLogging {
   import GameManagerActor._
   import GameManagerInternals._
 
@@ -48,7 +48,7 @@ class GameManagerActor(messages: Messages, playersWaitTimeout: FiniteDuration) e
 
     case msg: FindGameForPlayer if gameWaiting.isEmpty =>
       val gid = GameId(UUID.randomUUID().toString)
-      val gameRef = context.actorOf(GameActor.props(gid, self, messages, playersWaitTimeout = playersWaitTimeout))
+      val gameRef = context.actorOf(GameActor.props(gid, self, messages, playersWaitTimeout = playersWaitTimeout, playersMoveTimeout = playersMoveTimeout))
       val openGame = CurrentlyWaitingGame(gid, gameRef)
       tryJoining(openGame, msg)
 

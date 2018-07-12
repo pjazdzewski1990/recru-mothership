@@ -8,18 +8,22 @@ import akka.testkit.TestKit
 import akka.util.Timeout
 import io.scalac.recru.GameManagerActor._
 import io.scalac.recru.Model._
-import org.scalatest.{BeforeAndAfter, FlatSpecLike, MustMatchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, MustMatchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.time.{Millis, Seconds, Span}
 
 import scala.concurrent.duration._
 
 class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
-  with FlatSpecLike with MustMatchers with BeforeAndAfter with Eventually with ScalaFutures {
+  with FlatSpecLike with MustMatchers with BeforeAndAfterAll with Eventually with ScalaFutures {
 
   implicit val timeout = Timeout(3, TimeUnit.SECONDS)
   implicit override val patienceConfig =
     PatienceConfig(timeout = scaled(Span(5, Seconds)), interval = scaled(Span(100, Millis)))
+
+  override def afterAll {
+    TestKit.shutdownActorSystem(system)
+  }
 
   val player1 = Player("p1")
   val player2 = Player("p2")
@@ -28,7 +32,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
 
   "GameManagerActor" should "create a new game then moves games from waiting to running" in {
     val msg = new FakeMessages()
-    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second)))
+    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
     (manager ? FindGameForPlayer(player1)).futureValue mustBe a[GameFound]
     (manager ? FindGameForPlayer(player2)).futureValue mustBe a[GameFound]
     (manager ? FindGameForPlayer(player3)).futureValue mustBe a[GameFound]
@@ -40,7 +44,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
 
   it should "create new games when needed" in{
     val msg = new FakeMessages()
-    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second)))
+    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
 
     (manager ? FindGameForPlayer(player1)).futureValue mustBe a[GameFound]
     (manager ? FindGameForPlayer(player2)).futureValue mustBe a[GameFound]
@@ -61,7 +65,7 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
 
   it should "rejects moves to games that still accept players, but passes them when game does start" in {
     val msg = new FakeMessages()
-    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second)))
+    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
 
     val found = (manager ? FindGameForPlayer(player1)).futureValue
     found mustBe a[GameFound]
