@@ -29,6 +29,7 @@ object GameActor {
   case object Moved extends MoveResult
 
   val maxPlayersInGame = 6
+  val boardSize = 10
 }
 
 object GameActorInternals {
@@ -71,7 +72,8 @@ object GameActorInternals {
 
   object GameData {
     def empty(): GameData = {
-      val initialBoardState = Seq(Yellow, Orange, Red, Blue, Green, Purple) :: List.fill(9)(Seq.empty)
+      val initialBoardState = Seq(Yellow, Orange, Red, Blue, Green, Purple) :: List.fill(GameActor.boardSize -1)(Seq.empty)
+      //TODO: "createOrderFromPlayers" is a hack to avoid empty "order"s. There should be a better way to support that (make FSM state have 2 classes?)
       GameData(Map.empty, initialBoardState, createOrderFromPlayers(Set(Player(""))))
     }
   }
@@ -139,7 +141,8 @@ class GameActor(gameId: GameId,
     case WaitingForPlayers -> WaitingForCommand =>
       log.info("Game {} started", gameId)
       manager ! GameStarted(nextStateData.playersInTheGame.values.toSet)
-      messages.signalGameStart(nextStateData.playersInTheGame.values.toSet)
+      messages.signalGameStart(gameId, nextStateData.playersInTheGame.values.toSet)
+      messages.signalTurn(gameId, nextStateData.order.head)
   }
 
   when(WaitingForCommand, playersMoveTimeout) {
@@ -152,7 +155,7 @@ class GameActor(gameId: GameId,
       val updatedBoard = data.skipToNextPlayer().updateBoard(c, m)
 
       if(gameShouldCarryOn(updatedBoard)) {
-        stay() using updatedBoard
+        goto(WaitingForCommand) using updatedBoard
       } else {
         goto(GameDidEnd) using updatedBoard
       }
@@ -162,15 +165,23 @@ class GameActor(gameId: GameId,
   }
 
   onTransition {
+    case WaitingForCommand -> WaitingForCommand =>
+      log.info("Game {} moves to the next player {}", gameId, nextStateData.order.head)
+      messages.signalTurn(gameId, nextStateData.order.head)
+  }
+
+  onTransition {
     case _ -> GameDidEnd =>
       log.info("Game {} did end", gameId)
       signalOnGameEnd(messages, gameId, nextStateData)
   }
 
-  when(GameDidEnd) {
+  private val endStateBehaviour: StateFunction = {
     case Event(_, _) => //TODO: reply in case of getting a move command or join
       stay()
   }
+
+  when(GameDidEnd)(endStateBehaviour)
 
   onTransition {
     case _ -> PlayerMisbehaved =>
@@ -178,10 +189,7 @@ class GameActor(gameId: GameId,
       signalOnMisbehave(messages, gameId, nextStateData)
   }
 
-  when(PlayerMisbehaved) {
-    case Event(_, _) => //TODO: reply in case of getting a move command or join
-      stay()
-  }
+  when(PlayerMisbehaved)(endStateBehaviour)
 
   whenUnhandled {
     case Event(JoinGame(_), _) =>

@@ -215,15 +215,20 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
       messages.gamesStarted mustBe List(Set(player1, player2))
     }
 
+    val turnsCount = GameActor.boardSize -1
     for {
-      _ <- 0 until 10
+      _ <- 0 until turnsCount
     } yield {
       game ? PlayerMoves(player1, Red, ForwardOneField)
-      game ? PlayerMoves(player2, Green, ForwardOneField)
+      // this player will effectively stay in place, this makes our reasoning easier as there's no carry over happening
+      game ? PlayerMoves(player2, Green, BackOneField)
     }
 
     eventually {
       messages.seenGameEnd mustBe Option((gameId, Seq(player1), Seq(player2)))
+      val expectedTurns = Seq.fill(turnsCount)(Seq(player1, player2)).flatten
+        .dropRight(1) // we drop the last element as game ends "eagerly" with p1 reaching the goal
+      messages.turns mustBe expectedTurns
     }
   }
 
