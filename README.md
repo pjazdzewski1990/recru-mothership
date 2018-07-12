@@ -7,3 +7,28 @@ Programs written by the candidates are connecting then issuing move orders via R
 The candidates goal is to write a program that can integrate and be reasonably efficient in playing against other bots. Both simplistic ones provided by us and bots created by other candidates.
 
 Status: early PoC
+
+
+## Testing locally
+
+Create a game:
+
+```
+curl -X POST \
+  http://localhost:8080/game/ \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -d '{"name": "player1"}'
+```
+  
+from the response above you should extract the game id.
+
+Make a move in the game:
+
+```
+curl -X POST \
+  http://localhost:8080/game/5ecd57f8-af16-49da-98e5-d969e872e020 \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -d '{"name": "player1", "color": "red", "move": 2}'
+  ```
