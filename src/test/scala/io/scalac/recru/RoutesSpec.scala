@@ -6,7 +6,7 @@ import org.scalatest.{FlatSpecLike, MustMatchers}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import io.scalac.recru.Protocol._
 import io.scalac.recru.Protocol.IncomingPlayer
-import io.scalac.recru.Signals.SignalListenLocation
+import io.scalac.recru.messaging.Signals.SignalListenLocation
 import spray.json.{JsObject, JsString}
 
 import scala.concurrent.Future

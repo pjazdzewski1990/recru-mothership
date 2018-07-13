@@ -11,6 +11,8 @@ Status: early PoC
 
 ## Testing locally
 
+First start the dependencies with `docker-compose up`
+
 Create a game:
 
 ```
@@ -32,3 +34,11 @@ curl -X POST \
   -H 'content-type: application/json' \
   -d '{"name": "player1", "color": "red", "move": 2}'
   ```
+
+## Listen on Kafka:
+
+Connect to the container: `sudo docker exec -i -t {container_id} /bin/bash`
+
+Then `cd /opt/kafka_2.11-0.10.1.0/bin`
+
+Listen on the "colloseum" topic: `./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic colloseum --from-beginning`

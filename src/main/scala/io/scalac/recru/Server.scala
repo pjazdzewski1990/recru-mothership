@@ -3,6 +3,7 @@ package io.scalac.recru
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
+import io.scalac.recru.messaging.{KafkaSignals, KafkaSink}
 
 import scala.io.StdIn
 
@@ -15,7 +16,8 @@ object Server {
     implicit val executionContext = system.dispatcher
 
     // dependencies
-    val gameManager = system.actorOf(GameManagerActor.props(new KafkaSignals))
+    val sink = new KafkaSink
+    val gameManager = system.actorOf(GameManagerActor.props(new KafkaSignals(sink)))
     val gameService = new ActorGameService(gameManager)
 
     val bindingFuture = Http().bindAndHandle(new Routes(gameService).router, "localhost", 8080)

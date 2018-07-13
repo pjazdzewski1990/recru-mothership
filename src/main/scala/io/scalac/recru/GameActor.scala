@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, FSM, Props}
 import io.scalac.recru.GameActorInternals.{GameData, State}
 import io.scalac.recru.GameManagerActor.GameStarted
 import io.scalac.recru.Model._
+import io.scalac.recru.messaging.Signals
 
 import scala.concurrent.duration._
 

@@ -2,7 +2,8 @@ package io.scalac.recru
 
 import akka.Done
 import io.scalac.recru.Model.{Color, GameId, Move, Player}
-import io.scalac.recru.Signals.SignalListenLocation
+import io.scalac.recru.messaging.Signals
+import io.scalac.recru.messaging.Signals.SignalListenLocation
 
 class FakeSignals extends Signals {
   override def listenLocation = SignalListenLocation("")

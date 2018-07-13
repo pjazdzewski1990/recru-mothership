@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.testkit.{TestKit, TestProbe}
 import io.scalac.recru.GameService.{GameJoined, Moved, WrongTurn}
 import io.scalac.recru.Model._
-import io.scalac.recru.Signals.SignalListenLocation
+import io.scalac.recru.messaging.Signals.SignalListenLocation
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, MustMatchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 

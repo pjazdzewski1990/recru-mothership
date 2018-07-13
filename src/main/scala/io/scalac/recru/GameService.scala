@@ -6,6 +6,7 @@ import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
 import io.scalac.recru.Model._
+import io.scalac.recru.messaging.Signals
 
 import scala.concurrent.{ExecutionContext, Future}
 

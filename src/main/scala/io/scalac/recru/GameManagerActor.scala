@@ -8,6 +8,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.util.Timeout
 import io.scalac.recru.GameActor.JoinResult
 import io.scalac.recru.Model._
+import io.scalac.recru.messaging.Signals
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext
@@ -30,6 +31,7 @@ object GameManagerActor {
     Props(new GameManagerActor(messages, playersWaitTimeout = 30.seconds, playersMoveTimeout = 1.minute))
 }
 
+//TODO: "hide" all the *Internals objects
 object GameManagerInternals {
   case class CurrentlyWaitingGame(id: GameId, ref: ActorRef)
 }
