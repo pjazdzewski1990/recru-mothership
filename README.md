@@ -35,7 +35,7 @@ curl -X POST \
   -d '{"name": "player1", "color": "red", "move": 2}'
   ```
 
-## Listen on Kafka:
+## eEavesdrop on kafka topic
 
 Connect to the container: `sudo docker exec -i -t {container_id} /bin/bash`
 
