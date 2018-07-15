@@ -11,7 +11,7 @@ object Server {
   def main(args: Array[String]): Unit = {
     println("Starting the mothership!")
 
-    implicit val system = ActorSystem("my-system")
+    implicit val system = ActorSystem("mothership")
     implicit val materializer = ActorMaterializer()
     implicit val executionContext = system.dispatcher
 

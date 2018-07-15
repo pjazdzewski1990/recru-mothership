@@ -18,14 +18,17 @@ class KafkaSink(implicit val mat: Materializer) {
   val config = ConfigFactory.load().getConfig("akka.kafka.producer")
   val producerSettings =
     ProducerSettings(config, new StringSerializer, new StringSerializer)
-      .withBootstrapServers("localhost:9092")
+      .withBootstrapServers("127.0.0.1:9092")
 
   //TODO: ...
   def foo() = {
-    Source(1 to 100)
+    import scala.concurrent.ExecutionContext.Implicits.global
+    val f = Source(1 to 10)
       .map(_.toString)
       .map(value => new ProducerRecord[String, String](listenLocation.v, value))
       .runWith(Producer.plainSink(producerSettings))
+    f.onComplete(r => println(s"~~~ ${r}"))
+    f
   }
 
 }
