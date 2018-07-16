@@ -23,3 +23,12 @@ lazy val root = (project in file(".")).
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % Test
     )
   )
+
+//docker config
+mainClass in Compile := Some("io.scalac.recru.Server")
+
+enablePlugins(JavaAppPackaging)
+enablePlugins(DockerPlugin)
+enablePlugins(AshScriptPlugin)
+
+dockerBaseImage := "openjdk:jre-alpine"

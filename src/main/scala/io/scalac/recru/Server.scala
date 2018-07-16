@@ -5,7 +5,6 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import io.scalac.recru.messaging.{KafkaSignals, KafkaSink}
 
-import scala.io.StdIn
 
 object Server {
   def main(args: Array[String]): Unit = {
@@ -20,12 +19,8 @@ object Server {
     val gameManager = system.actorOf(GameManagerActor.props(new KafkaSignals(sink)))
     val gameService = new ActorGameService(gameManager)
 
-    val bindingFuture = Http().bindAndHandle(new Routes(gameService).router, "localhost", 8080)
+    Http().bindAndHandle(new Routes(gameService).router, "0.0.0.0", port = 8080)
 
-    println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
-    StdIn.readLine()
-    bindingFuture
-      .flatMap(_.unbind())
-      .onComplete(_ => system.terminate())
+    println(s"Server online at http://localhost:8080/")
   }
 }

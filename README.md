@@ -35,10 +35,15 @@ curl -X POST \
   -d '{"name": "player1", "color": "red", "move": 2}'
   ```
 
-## eEavesdrop on kafka topic
+## Eavesdrop on kafka topic
 
 Connect to the container: `sudo docker exec -i -t {container_id} /bin/bash`
 
 Then `cd /opt/kafka_2.11-0.10.1.0/bin`
 
 Listen on the "colloseum" topic: `./kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic colloseum --from-beginning`
+
+
+## Docker
+
+Build the image with `sbt clean test docker:publishLocal`, then run the image with `docker run --rm -p8080:8080 {IMAGE ID}`
