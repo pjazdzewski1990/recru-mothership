@@ -13,6 +13,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 import spray.json.{JsArray, JsNumber, JsObject, JsString, JsValue}
 
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 class KafkaSink(implicit val mat: Materializer) {
 
@@ -35,6 +36,10 @@ class KafkaSink(implicit val mat: Materializer) {
       )
     }
     .via(Producer.flexiFlow(producerSettings))
+    .recover {
+      case NonFatal(ex) =>
+        println(s"Can't send events to Kafka due to: ${ex.getMessage}")
+    }
     .toMat(Sink.ignore)(Keep.left)
     .run()
 
