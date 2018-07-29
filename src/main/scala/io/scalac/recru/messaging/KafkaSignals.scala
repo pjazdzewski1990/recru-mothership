@@ -15,9 +15,14 @@ import spray.json.{JsArray, JsNumber, JsObject, JsString, JsValue}
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
-class KafkaSink(implicit val mat: Materializer) {
+trait SignalsSink {
+  def listenLocation: SignalListenLocation
+  def pushToKafka(evt: JsValue): Future[Boolean]
+}
 
-  val listenLocation = SignalListenLocation("colloseum")
+class KafkaSink(implicit val mat: Materializer) extends SignalsSink {
+
+  override val listenLocation = SignalListenLocation("colloseum")
 
   val config = ConfigFactory.load().getConfig("akka.kafka.producer")
   val producerSettings =
@@ -43,7 +48,7 @@ class KafkaSink(implicit val mat: Materializer) {
     .toMat(Sink.ignore)(Keep.left)
     .run()
 
-  def pushToKafka(evt: JsValue): Future[Boolean] = {
+  override def pushToKafka(evt: JsValue): Future[Boolean] = {
     import mat.executionContext
 
     publishToKafka.offer(evt).map {
@@ -82,7 +87,7 @@ private[messaging] object KafkaMarshalling {
       ("type", JsString("game-update")),
       ("gameId", JsString(gameId.v)),
       ("player", JsString(player.name)),
-      ("color", JsString(movedColor.toString)),
+      ("color", JsString(movedColor.toString.toLowerCase)),
       ("move", JsNumber(move.moveValue))
     )
   }
@@ -99,7 +104,7 @@ private[messaging] object KafkaMarshalling {
   }
 }
 
-class KafkaSignals(sink: KafkaSink) extends Signals {
+class KafkaSignals(sink: SignalsSink) extends Signals {
   import KafkaMarshalling._
   // Note: Signals now support a multi-tenant mode only (1 stream, many games), but could easily be moved to single tenant
   override val listenLocation = sink.listenLocation
