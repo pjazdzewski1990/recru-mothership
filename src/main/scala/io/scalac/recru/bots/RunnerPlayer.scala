@@ -109,7 +109,7 @@ class RunnerPlayer(usedName: String, client: HttpComms)
   val rawConfig = ConfigFactory.load().getConfig("akka.kafka.consumer")
   val consumerSettings =
     ConsumerSettings(rawConfig, new StringDeserializer, new StringDeserializer)
-      .withBootstrapServers("localhost:9092")
+      .withBootstrapServers("docker.for.mac.host.internal:29092")
       .withGroupId(self.path.toString)
       .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
       .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
@@ -189,7 +189,7 @@ class RunnerPlayer(usedName: String, client: HttpComms)
 
   def parseForProcessing(rawKafkaValue: String, listenForGame: String): Observation = {
     val updateT = Try{ JsonParser(rawKafkaValue).asJsObject }
-    log.info(s"Observed ${updateT} on Kafka")
+//    log.info(s"Observed ${updateT} on Kafka")
 
     updateT match {
       case TrySuccess(js: JsObject) =>

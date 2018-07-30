@@ -27,7 +27,7 @@ class KafkaSink(implicit val mat: Materializer) extends SignalsSink {
   val config = ConfigFactory.load().getConfig("akka.kafka.producer")
   val producerSettings =
     ProducerSettings(config, new StringSerializer, new StringSerializer)
-      .withBootstrapServers("127.0.0.1:9092")
+      .withBootstrapServers("kafka:29092")
 
   val bufferSize = 1000
 
