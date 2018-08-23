@@ -20,11 +20,15 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:32181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://docker.for.mac.host.internal:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.0.94:29092
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   mothership:
       image: "mothership:0.1.0-SNAPSHOT"
-      ports:
-        - "8081:8080"
+
+  bots:
+    image: "mothership-bots:0.1.0-SNAPSHOT"
+    environment:
+      KAFKA: 192.168.0.94:29092
+      API: http://mothership:8080/
