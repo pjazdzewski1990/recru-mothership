@@ -69,11 +69,10 @@ class Routes(game: GameService) {
     makeAMoveF
   }
 
-  val router = post {
+  val router =
     ignoreTrailingSlash {
       pathPrefix("game") {
-        moveRoute ~ addRoute
+        pathEndOrSingleSlash { post { addRoute } } ~ put { moveRoute }
       }
     }
-  }
 }
