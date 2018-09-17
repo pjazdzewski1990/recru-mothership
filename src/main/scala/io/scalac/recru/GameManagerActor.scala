@@ -36,33 +36,42 @@ object GameManagerInternals {
   case class CurrentlyWaitingGame(id: GameId, ref: ActorRef)
 }
 
-class GameManagerActor(messages: Signals, playersWaitTimeout: FiniteDuration, playersMoveTimeout: FiniteDuration) extends Actor with ActorLogging {
+class GameManagerActor(messages: Signals,
+                       playersWaitTimeout: FiniteDuration,
+                       playersMoveTimeout: FiniteDuration,
+                       randomizePlayerOrder: Set[Player] => Stream[Player] = Randomizer.createOrderFromPlayers) extends Actor with ActorLogging {
   import GameManagerActor._
   import GameManagerInternals._
 
   implicit val timeout = Timeout(3, TimeUnit.SECONDS)
   implicit val ec: ExecutionContext = context.dispatcher
 
-  def handleCommands(gamesRunning: Map[GameId, ActorRef],
+  def handleCommands(allGames: Map[GameId, ActorRef],
                      gameWaiting: Option[CurrentlyWaitingGame]): Receive = {
     case msg: FindGameForPlayer if gameWaiting.isDefined =>
       tryJoining(gameWaiting.get, msg)
 
     case msg: FindGameForPlayer if gameWaiting.isEmpty =>
       val gid = GameId(UUID.randomUUID().toString)
-      val gameRef = context.actorOf(GameActor.props(gid, self, messages, playersWaitTimeout = playersWaitTimeout, playersMoveTimeout = playersMoveTimeout))
+      val gameRef = context.actorOf(GameActor.props(
+        gid,
+        self,
+        messages,
+        randomizePlayerOrder = randomizePlayerOrder,
+        playersWaitTimeout = playersWaitTimeout,
+        playersMoveTimeout = playersMoveTimeout))
       val openGame = CurrentlyWaitingGame(gid, gameRef)
       tryJoining(openGame, msg)
 
-      context.become(handleCommands(gamesRunning, Option(openGame)))
+      context.become(handleCommands(allGames, Option(openGame)))
 
     case GameStarted(_) if gameWaiting.isDefined =>
       val gameThatStarted = gameWaiting.get
-      context.become(handleCommands(gamesRunning + (gameThatStarted.id -> gameThatStarted.ref), None))
+      context.become(handleCommands(allGames + (gameThatStarted.id -> gameThatStarted.ref), None))
 
     case MakeAMove(gid, player, colorToMove, move) =>
       val replyTo = sender()
-      gamesRunning.get(gid).map { ref =>
+      allGames.get(gid).map { ref =>
         log.info("Player {} is going to move in {}", player, gid)
         (ref ? GameActor.PlayerMoves(player, colorToMove, move)).mapTo[GameActor.MoveResult].map {
           case GameActor.Moved =>

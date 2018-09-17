@@ -32,10 +32,13 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   val player2 = Player("p2")
   val player3 = Player("p3")
 
+  def defaultOrder(s: Set[Player]): Stream[Player] =
+    Stream.concat(s) #::: defaultOrder(s)
+
   "GameActor" should "start a game with 2 players after the timeout" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, defaultOrder _))
     val joined1F = game ? JoinGame(player1)
     val joined2F = game ? JoinGame(player2)
 
@@ -51,7 +54,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "immediately start the game when having {MAX} players" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 99.hours, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 99.hours, playersMoveTimeout = 1.minute, defaultOrder _))
 
     (1 to GameActor.maxPlayersInGame).map(x => Player(x.toString)).map{ p =>
       (game ? JoinGame(p)).futureValue mustBe a[Joined]
@@ -67,7 +70,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "reject players over the {MAX} players limit" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 99.hours, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 99.hours, playersMoveTimeout = 1.minute, defaultOrder _))
 
     val players = (1 to GameActor.maxPlayersInGame * 2).map(x => Player(x.toString))
 
@@ -83,7 +86,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "end the game with a draw if nobody shows up" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, defaultOrder _))
     val joined1F = game ? JoinGame(player1)
 
     joined1F.futureValue mustBe a[Joined]
@@ -99,7 +102,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     val manager = TestProbe()
 
     def getAssignedColors(): Seq[Color] = {
-      val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.hour, playersMoveTimeout = 1.minute))
+      val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.hour, playersMoveTimeout = 1.minute, defaultOrder _))
       (0 until GameActor.maxPlayersInGame).map {idx =>
         (game ? JoinGame(Player("p_" + idx.toString))).mapTo[Joined].futureValue.colorAssigned
       }
@@ -118,7 +121,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "reject players who want to join a running game" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, defaultOrder _))
     val joined1F = game ? JoinGame(player1)
     val joined2F = game ? JoinGame(player2)
 
@@ -136,7 +139,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "allow players to submit moves according to the defined order" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, defaultOrder _))
 
     game ! JoinGame(player1)
     game ! JoinGame(player2)
@@ -172,7 +175,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "reject player moves if provided out of order" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, defaultOrder _))
 
     game ! JoinGame(player1)
     game ! JoinGame(player2)
@@ -206,7 +209,9 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
     val messages = new FakeSignals
     val manager = TestProbe()
     val game = system.actorOf(
-      GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, randomizeColors = () => Seq(Red, Green))
+      GameActor.props(gameId, manager.ref, messages,
+        playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute,
+        defaultOrder _, randomizeColors = () => Seq(Red, Green))
     )
 
     game ! JoinGame(player1)
@@ -235,7 +240,7 @@ class GameActorSpec extends TestKit(ActorSystem("GameActor"))
   it should "end the game if any of the players fails to submit a move" in {
     val messages = new FakeSignals
     val manager = TestProbe()
-    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.second))
+    val game = system.actorOf(GameActor.props(gameId, manager.ref, messages, playersWaitTimeout = 1.second, playersMoveTimeout = 1.second, defaultOrder _))
     val joined1F = game ? JoinGame(player1)
     val joined2F = game ? JoinGame(player2)
 

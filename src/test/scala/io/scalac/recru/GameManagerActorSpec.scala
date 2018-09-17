@@ -64,8 +64,11 @@ class GameManagerActorSpec extends TestKit(ActorSystem("GameActor"))
   }
 
   it should "rejects moves to games that still accept players, but passes them when game does start" in {
+    def defaultOrder(s: Set[Player]): Stream[Player] =
+      Stream.concat(s) #::: defaultOrder(s)
+
     val msg = new FakeSignals()
-    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute)))
+    val manager = system.actorOf(Props(new GameManagerActor(msg, playersWaitTimeout = 1.second, playersMoveTimeout = 1.minute, defaultOrder _)))
 
     val found = (manager ? FindGameForPlayer(player1)).futureValue
     found mustBe a[GameFound]
