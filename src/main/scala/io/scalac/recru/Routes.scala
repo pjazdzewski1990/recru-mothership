@@ -44,7 +44,7 @@ class Routes(game: GameService) {
     }
   }
 
-  private[Routes] val moveRoute = path(Remaining) { gameId =>
+  private[Routes] val moveRoute = path(Segment) { gameId =>
     entity(as[IncomingMove]) { move =>
       onComplete(movePiece(gameId, move)) {
         case Success(res) =>
@@ -69,11 +69,10 @@ class Routes(game: GameService) {
     makeAMoveF
   }
 
-  val router = post {
+  val router =
     ignoreTrailingSlash {
       pathPrefix("game") {
-        moveRoute ~ addRoute
+        pathEndOrSingleSlash { post { addRoute } } ~ put { moveRoute }
       }
     }
-  }
 }

@@ -14,8 +14,11 @@ object GameActor {
             messages: Signals,
             playersWaitTimeout: FiniteDuration,
             playersMoveTimeout: FiniteDuration,
+            randomizePlayerOrder: Set[Player] => Stream[Player],
             randomizeColors: () => Seq[Color] = Colors.randomColors): Props =
-    Props(new GameActor(gameId, manager, messages, playersWaitTimeout = playersWaitTimeout, playersMoveTimeout = playersMoveTimeout, randomizeColors))
+    Props(new GameActor(gameId, manager, messages,
+      playersWaitTimeout = playersWaitTimeout, playersMoveTimeout = playersMoveTimeout,
+      randomizeColors, randomizePlayerOrder))
 
   sealed trait GameActorCommand // marker
   case class JoinGame(player: Player) extends GameActorCommand
@@ -75,11 +78,9 @@ object GameActorInternals {
     def empty(): GameData = {
       val initialBoardState = Seq(Yellow, Orange, Red, Blue, Green, Purple) :: List.fill(GameActor.boardSize -1)(Seq.empty)
       //TODO: "createOrderFromPlayers" is a hack to avoid empty "order"s. There should be a better way to support that (make FSM state have 2 classes?)
-      GameData(Map.empty, initialBoardState, createOrderFromPlayers(Set(Player(""))))
+      GameData(Map.empty, initialBoardState, Stream(Player("")))
     }
   }
-
-  def createOrderFromPlayers(s: Set[Player]): Stream[Player] = Stream.concat(s) #::: createOrderFromPlayers(s)
 
 
   def gameShouldCarryOn(updatedBoard: GameData): Boolean = {
@@ -107,7 +108,8 @@ class GameActor(gameId: GameId,
                 messages: Signals,
                 playersWaitTimeout: FiniteDuration,
                 playersMoveTimeout: FiniteDuration,
-                randomOrder: () => Seq[Color]) extends FSM[State, GameData] {
+                randomOrder: () => Seq[Color],
+                randomizePlayerOrder: Set[Player] => Stream[Player]) extends FSM[State, GameData] {
   import GameActor._
   import GameActorInternals._
 
@@ -123,7 +125,7 @@ class GameActor(gameId: GameId,
       if(updated.playersInTheGame.size == maxPlayersInGame) {
         val players = updated.playersInTheGame.values.toSet
         //TODO: make sure you can't move to WaitingForCommand without setting the order
-        val orderOfPlayers = createOrderFromPlayers(players)
+        val orderOfPlayers = randomizePlayerOrder(players)
         goto(WaitingForCommand) using updated.copy(order = orderOfPlayers)
       } else {
         stay() using updated
@@ -131,7 +133,7 @@ class GameActor(gameId: GameId,
 
     case Event(StateTimeout, data) if data.playersInTheGame.size > 1 =>
       val players = data.playersInTheGame.values.toSet
-      val orderOfPlayers = createOrderFromPlayers(players)
+      val orderOfPlayers = randomizePlayerOrder(players)
       goto(WaitingForCommand) using data.copy(order = orderOfPlayers)
 
     case Event(StateTimeout, data) if data.playersInTheGame.size <= 1 =>
@@ -166,6 +168,13 @@ class GameActor(gameId: GameId,
 
     case Event(StateTimeout, data) =>
       goto(PlayerMisbehaved) using data
+  }
+
+  when(GameDidEnd) {
+    case Event(_, _) =>
+      log.info("Game {} did end already - additional commands will fail")
+      sender() ! NotYourTurn
+      stay()
   }
 
   onTransition {
