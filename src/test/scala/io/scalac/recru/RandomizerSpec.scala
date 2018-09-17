@@ -18,5 +18,8 @@ class RandomizerSpec extends FlatSpec with MustMatchers {
     suborder1.size mustBe 100
     suborder2.size mustBe 100
     suborder1 mustNot be(suborder2)
+
+    suborder1.drop(6).take(10) mustBe suborder1.drop(12).take(10)
+    suborder2.drop(6).take(20) mustBe suborder2.drop(60).take(20)
   }
 }
