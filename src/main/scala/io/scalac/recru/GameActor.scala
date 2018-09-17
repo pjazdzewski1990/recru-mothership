@@ -168,6 +168,13 @@ class GameActor(gameId: GameId,
       goto(PlayerMisbehaved) using data
   }
 
+  when(GameDidEnd) {
+    case Event(_, _) =>
+      log.info("Game {} did end already - additional commands will fail")
+      sender() ! NotYourTurn
+      stay()
+  }
+
   onTransition {
     case WaitingForCommand -> WaitingForCommand =>
       log.info("Game {} moves to the next player {}", gameId, nextStateData.order.head)
