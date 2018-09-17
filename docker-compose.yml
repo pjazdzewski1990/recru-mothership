@@ -25,7 +25,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   mothership:
-      image: "mothership:0.1.0-SNAPSHOT"
+      image: "mothership:0.2.0-SNAPSHOT"
       ports:
         - 8080:8080
 
