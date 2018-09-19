@@ -29,8 +29,8 @@ services:
       ports:
         - 8080:8080
 
-#  bots:
-#    image: "mothership-bots:0.1.0-SNAPSHOT"
-#    environment:
-#      KAFKA: 192.168.0.94:29092
-#      API: http://mothership:8080/
+  bots:
+    image: "mothership-bots:0.1.0-SNAPSHOT"
+    environment:
+      KAFKA: 192.168.0.94:29092
+      API: http://mothership:8080/
